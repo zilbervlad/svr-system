@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from collections import OrderedDict
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
@@ -31,6 +32,68 @@ UPLOAD_FOLDER.mkdir(exist_ok=True)
 
 ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 
+MASTER_SVR_FORM_ITEMS = [
+    {"field_key": "checklist_book_use", "label": "Checklist book use", "field_type": "yes_no", "section_name": "Checks", "sort_order": 10},
+    {"field_key": "parking_lot_clean", "label": "Parking lot / sidewalk entry clean", "field_type": "yes_no", "section_name": "Checks", "sort_order": 20},
+    {"field_key": "carryout_clean", "label": "Carry out clean, seating counter, and surfaces", "field_type": "yes_no", "section_name": "Checks", "sort_order": 30},
+    {"field_key": "customer_area_condition", "label": "Customer area condition okay", "field_type": "yes_no", "section_name": "Checks", "sort_order": 40},
+    {"field_key": "uniforms_proper", "label": "Uniforms / aprons worn properly", "field_type": "yes_no", "section_name": "Checks", "sort_order": 50},
+    {"field_key": "hot_bags_clean", "label": "Hot bags clean", "field_type": "yes_no", "section_name": "Checks", "sort_order": 60},
+    {"field_key": "hot_bags_condition", "label": "Hot bags in good condition / sufficient #", "field_type": "yes_no", "section_name": "Checks", "sort_order": 70},
+    {"field_key": "production_area_clean", "label": "Production area walls / floors / baseboards / windows clean", "field_type": "yes_no", "section_name": "Checks", "sort_order": 80},
+    {"field_key": "ceiling_tiles_clean", "label": "Ceiling tiles, t-bars, vents clean and not broken", "field_type": "yes_no", "section_name": "Checks", "sort_order": 90},
+    {"field_key": "walls_floors_not_broken", "label": "Walls, floors, baseboards not broken", "field_type": "yes_no", "section_name": "Checks", "sort_order": 100},
+    {"field_key": "walkin_makeline_clean", "label": "Walk-in / makeline clean", "field_type": "yes_no", "section_name": "Checks", "sort_order": 110},
+    {"field_key": "bakeware_clean", "label": "Bakeware clean and free of carbon build-up", "field_type": "yes_no", "section_name": "Checks", "sort_order": 120},
+    {"field_key": "oven_area_clean", "label": "Oven area clean", "field_type": "yes_no", "section_name": "Checks", "sort_order": 130},
+    {"field_key": "thermometers_available", "label": "Calibrated thermometers in use / available", "field_type": "yes_no", "section_name": "Checks", "sort_order": 140},
+    {"field_key": "scales_available", "label": "Calibrated working scales and job aids available", "field_type": "yes_no", "section_name": "Checks", "sort_order": 150},
+    {"field_key": "caller_id_working", "label": "Caller ID installed and working", "field_type": "yes_no", "section_name": "Checks", "sort_order": 160},
+    {"field_key": "callout_calendar_present", "label": "Callout calendar present", "field_type": "yes_no", "section_name": "Checks", "sort_order": 170},
+
+    {"field_key": "restroom_notes", "label": "Restroom notes", "field_type": "textarea", "section_name": "Notes", "sort_order": 200},
+    {"field_key": "checklist_book_notes", "label": "Checklist book notes", "field_type": "textarea", "section_name": "Notes", "sort_order": 205},
+    {"field_key": "one_way_proof_dough_projection", "label": "1-way proof - dough projection / dough marked inside the walk-in", "field_type": "textarea", "section_name": "Operations", "sort_order": 207},
+    {"field_key": "pizza_quality_notes", "label": "Pizza quality notes", "field_type": "textarea", "section_name": "Notes", "sort_order": 210},
+    {"field_key": "load_and_go_load_captain", "label": "Load & Go - certified load captain on schedule for every rush", "field_type": "textarea", "section_name": "Operations", "sort_order": 215},
+    {"field_key": "last_week_svr_review", "label": "Last week's SVR review", "field_type": "textarea", "section_name": "Notes", "sort_order": 220},
+    {"field_key": "outside_store_condition_notes", "label": "Outside store condition notes", "field_type": "textarea", "section_name": "Notes", "sort_order": 230},
+    {"field_key": "carryout_notes", "label": "Carry out notes", "field_type": "textarea", "section_name": "Notes", "sort_order": 240},
+    {"field_key": "store_condition_notes", "label": "Store condition notes", "field_type": "textarea", "section_name": "Notes", "sort_order": 250},
+    {"field_key": "refrigeration_units_notes", "label": "Refrigeration units notes", "field_type": "textarea", "section_name": "Notes", "sort_order": 260},
+    {"field_key": "bake_wares_notes", "label": "Bake wares notes", "field_type": "textarea", "section_name": "Notes", "sort_order": 270},
+    {"field_key": "oven_heatrack_notes", "label": "Oven / heatrack notes", "field_type": "textarea", "section_name": "Notes", "sort_order": 280},
+    {"field_key": "callout_calendar_notes", "label": "Call out calendar notes - who needs a meeting?", "field_type": "textarea", "section_name": "Notes", "sort_order": 290},
+    {"field_key": "deposit_log_notes", "label": "Deposit log notes", "field_type": "textarea", "section_name": "Notes", "sort_order": 300},
+    {"field_key": "deposit_log_missing_days", "label": "Deposit log - which days are missing?", "field_type": "textarea", "section_name": "Operations", "sort_order": 305},
+    {"field_key": "pest_control_status", "label": "Pest control", "field_type": "text", "section_name": "Operations", "sort_order": 310},
+    {"field_key": "cleaning_list", "label": "Cleaning list for the week", "field_type": "textarea", "section_name": "Operations", "sort_order": 320},
+    {"field_key": "goals_for_week", "label": "Goals for the week", "field_type": "textarea", "section_name": "Operations", "sort_order": 330},
+    {"field_key": "maintenance_needs", "label": "Maintenance needs", "field_type": "textarea", "section_name": "Operations", "sort_order": 340},
+    {"field_key": "complete_solution", "label": "The complete solution", "field_type": "textarea", "section_name": "Operations", "sort_order": 350},
+]
+
+SUPPORTED_SVR_FIELD_KEYS = {item["field_key"] for item in MASTER_SVR_FORM_ITEMS}
+
+FAIL_COUNT_FIELDS = [
+    "parking_lot_clean",
+    "carryout_clean",
+    "customer_area_condition",
+    "uniforms_proper",
+    "hot_bags_clean",
+    "hot_bags_condition",
+    "production_area_clean",
+    "ceiling_tiles_clean",
+    "walls_floors_not_broken",
+    "walkin_makeline_clean",
+    "bakeware_clean",
+    "oven_area_clean",
+    "thermometers_available",
+    "scales_available",
+    "caller_id_working",
+    "callout_calendar_present",
+]
+
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "boston-pie-svr-secret")
 app.config["UPLOAD_FOLDER"] = str(UPLOAD_FOLDER)
@@ -53,6 +116,31 @@ def close_db(exception=None):
     db = g.pop("db", None)
     if db is not None:
         db.close()
+
+
+def seed_svr_form_items(db):
+    now = datetime.now().isoformat(timespec="seconds")
+    for item in MASTER_SVR_FORM_ITEMS:
+        existing = db.execute(
+            "SELECT id FROM svr_form_items WHERE field_key = ?",
+            (item["field_key"],),
+        ).fetchone()
+        if not existing:
+            db.execute(
+                """
+                INSERT INTO svr_form_items
+                (field_key, label, field_type, section_name, sort_order, is_active, created_at)
+                VALUES (?, ?, ?, ?, ?, 1, ?)
+                """,
+                (
+                    item["field_key"],
+                    item["label"],
+                    item["field_type"],
+                    item["section_name"],
+                    item["sort_order"],
+                    now,
+                ),
+            )
 
 
 def init_db():
@@ -96,7 +184,10 @@ def init_db():
             manager_on_duty TEXT,
             checklist_book_use TEXT,
             restroom_notes TEXT,
+            checklist_book_notes TEXT,
+            one_way_proof_dough_projection TEXT,
             pizza_quality_notes TEXT,
+            load_and_go_load_captain TEXT,
             last_week_svr_review TEXT,
             outside_store_condition_notes TEXT,
             carryout_notes TEXT,
@@ -106,6 +197,7 @@ def init_db():
             oven_heatrack_notes TEXT,
             callout_calendar_notes TEXT,
             deposit_log_notes TEXT,
+            deposit_log_missing_days TEXT,
             pest_control_status TEXT,
             cleaning_list TEXT,
             goals_for_week TEXT,
@@ -128,6 +220,21 @@ def init_db():
             caller_id_working TEXT,
             callout_calendar_present TEXT,
             is_archived INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS svr_form_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            field_key TEXT UNIQUE NOT NULL,
+            label TEXT NOT NULL,
+            field_type TEXT NOT NULL CHECK(field_type IN ('yes_no', 'text', 'textarea')),
+            section_name TEXT NOT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            is_active INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL
         )
         """
@@ -206,6 +313,8 @@ def init_db():
         """
     )
 
+    seed_svr_form_items(db)
+
     starter_users = [
         ("admin", "admin123", "admin", "Administrator"),
         ("kelly", "super123", "supervisor", "Kelly"),
@@ -242,9 +351,7 @@ def init_db():
 
     db.commit()
     db.close()
-
-
-# ============================================================
+    # ============================================================
 # Auth / utility
 # ============================================================
 def login_required(view):
@@ -344,25 +451,7 @@ def is_maintenance_text(text):
 
 
 def count_failures(report_row):
-    yes_no_fields = [
-        "parking_lot_clean",
-        "carryout_clean",
-        "customer_area_condition",
-        "uniforms_proper",
-        "hot_bags_clean",
-        "hot_bags_condition",
-        "production_area_clean",
-        "ceiling_tiles_clean",
-        "walls_floors_not_broken",
-        "walkin_makeline_clean",
-        "bakeware_clean",
-        "oven_area_clean",
-        "thermometers_available",
-        "scales_available",
-        "caller_id_working",
-        "callout_calendar_present",
-    ]
-    return sum(1 for field in yes_no_fields if report_row[field] == "No")
+    return sum(1 for field in FAIL_COUNT_FIELDS if report_row[field] == "No")
 
 
 def create_user(username, password, role, display_name):
@@ -443,6 +532,79 @@ def build_manager_email_link(report, actions, contact_row):
 
     body = "\r\n".join(body_lines)
     return f"mailto:{quote(to_email)}?subject={quote(subject)}&body={quote(body)}"
+
+
+def load_svr_form_items(active_only=True):
+    db = get_db()
+    query = "SELECT * FROM svr_form_items"
+    if active_only:
+        query += " WHERE is_active = 1"
+    query += " ORDER BY sort_order ASC, id ASC"
+    return db.execute(query).fetchall()
+
+
+def group_form_items(items):
+    sections = OrderedDict()
+    for item in items:
+        section = item["section_name"] or "General"
+        if section not in sections:
+            sections[section] = []
+        sections[section].append(item)
+    return sections
+
+
+def get_svr_form_item(item_id):
+    db = get_db()
+    return db.execute(
+        "SELECT * FROM svr_form_items WHERE id = ?",
+        (item_id,),
+    ).fetchone()
+
+
+def swap_sort_order(item_a, item_b):
+    db = get_db()
+    db.execute(
+        "UPDATE svr_form_items SET sort_order = ? WHERE id = ?",
+        (item_b["sort_order"], item_a["id"]),
+    )
+    db.execute(
+        "UPDATE svr_form_items SET sort_order = ? WHERE id = ?",
+        (item_a["sort_order"], item_b["id"]),
+    )
+    db.commit()
+
+
+def move_form_item(item_id, direction):
+    db = get_db()
+    item = get_svr_form_item(item_id)
+    if not item:
+        return
+
+    if direction == "up":
+        neighbor = db.execute(
+            """
+            SELECT *
+            FROM svr_form_items
+            WHERE sort_order < ?
+            ORDER BY sort_order DESC, id DESC
+            LIMIT 1
+            """,
+            (item["sort_order"],),
+        ).fetchone()
+    else:
+        neighbor = db.execute(
+            """
+            SELECT *
+            FROM svr_form_items
+            WHERE sort_order > ?
+            ORDER BY sort_order ASC, id ASC
+            LIMIT 1
+            """,
+            (item["sort_order"],),
+        ).fetchone()
+
+    if neighbor:
+        swap_sort_order(item, neighbor)
 
 
 # ============================================================
@@ -558,6 +720,12 @@ BASE_HEAD = """
         .btn.secondary { background: #4b5563; }
         .btn.green { background: #166534; }
         .btn.red { background: #b91c1c; }
+        .btn.inline {
+            width: auto;
+            margin: 0 6px 0 0;
+            padding: 8px 12px;
+            font-size: 13px;
+        }
         .table-wrap {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
@@ -652,6 +820,10 @@ BASE_HEAD = """
                 text-align: center;
                 margin-right: 0;
             }
+            .btn.inline {
+                width: auto;
+                margin-bottom: 6px;
+            }
             table { min-width: 560px; }
         }
         @media (max-width: 520px) {
@@ -679,6 +851,7 @@ TOPBAR = """
             <a href="{{ url_for('dashboard') }}">Dashboard</a>
             <a href="{{ url_for('action_dashboard') }}">Action Items</a>
             <a href="{{ url_for('maintenance_dashboard') }}">Maintenance</a>
+            <a href="{{ url_for('manage_svr_form') }}">SVR Form</a>
             <a href="{{ url_for('manage_users') }}">Users</a>
             <a href="{{ url_for('manage_store_contacts') }}">Store Contacts</a>
             <a href="{{ url_for('verification_dashboard') }}">Verif Dashboard</a>
@@ -751,6 +924,7 @@ def home():
             <a class="btn secondary" href="{{ url_for('new_verification') }}">Submit Verification</a>
             <a class="btn secondary" href="{{ url_for('dashboard') }}">Open Dashboard</a>
             <a class="btn secondary" href="{{ url_for('maintenance_dashboard') }}">Maintenance</a>
+            <a class="btn secondary" href="{{ url_for('manage_svr_form') }}">Manage SVR Form</a>
             <a class="btn secondary" href="{{ url_for('archived_reports') }}">Archived</a>
         </div>
 
@@ -1117,6 +1291,150 @@ def dashboard():
     )
 
 
+@app.route("/svr-form", methods=["GET", "POST"])
+@login_required
+@role_required("admin")
+def manage_svr_form():
+    db = get_db()
+
+    if request.method == "POST":
+        action = request.form.get("action", "").strip()
+
+        if action == "update_item":
+            item_id = int(request.form.get("item_id", "0") or 0)
+            label = request.form.get("label", "").strip()
+            section_name = request.form.get("section_name", "").strip() or "General"
+
+            item = get_svr_form_item(item_id)
+            if not item:
+                flash("SVR form item not found.", "error")
+                return redirect(url_for("manage_svr_form"))
+
+            if not label:
+                flash("Label is required.", "error")
+                return redirect(url_for("manage_svr_form"))
+
+            db.execute(
+                """
+                UPDATE svr_form_items
+                SET label = ?, section_name = ?
+                WHERE id = ?
+                """,
+                (label, section_name, item_id),
+            )
+            db.commit()
+            flash("SVR form item updated.", "success")
+            return redirect(url_for("manage_svr_form"))
+
+        if action == "toggle_item":
+            item_id = int(request.form.get("item_id", "0") or 0)
+            item = get_svr_form_item(item_id)
+            if not item:
+                flash("SVR form item not found.", "error")
+                return redirect(url_for("manage_svr_form"))
+
+            new_value = 0 if item["is_active"] == 1 else 1
+            db.execute(
+                "UPDATE svr_form_items SET is_active = ? WHERE id = ?",
+                (new_value, item_id),
+            )
+            db.commit()
+            flash("SVR form item updated.", "success")
+            return redirect(url_for("manage_svr_form"))
+
+        if action == "move_up":
+            item_id = int(request.form.get("item_id", "0") or 0)
+            move_form_item(item_id, "up")
+            flash("SVR form item moved up.", "success")
+            return redirect(url_for("manage_svr_form"))
+
+        if action == "move_down":
+            item_id = int(request.form.get("item_id", "0") or 0)
+            move_form_item(item_id, "down")
+            flash("SVR form item moved down.", "success")
+            return redirect(url_for("manage_svr_form"))
+
+    items = load_svr_form_items(active_only=False)
+
+    content = """
+    <div class="card">
+        <h2>Manage SVR Form</h2>
+        <p class="muted">Admin can change the order, labels, sections, and whether items are active on the live SVR form.</p>
+    </div>
+
+    <div class="card">
+        <h3>SVR Form Items</h3>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Order</th>
+                        <th>Field Key</th>
+                        <th>Type</th>
+                        <th>Label / Section</th>
+                        <th>Status</th>
+                        <th>Move</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ item['sort_order'] }}</td>
+                        <td><code>{{ item['field_key'] }}</code></td>
+                        <td>{{ item['field_type'] }}</td>
+                        <td>
+                            <form method="post" style="margin:0;">
+                                <input type="hidden" name="action" value="update_item">
+                                <input type="hidden" name="item_id" value="{{ item['id'] }}">
+                                <div style="margin-bottom:8px;">
+                                    <label>Label</label>
+                                    <input type="text" name="label" value="{{ item['label'] }}" required>
+                                </div>
+                                <div style="margin-bottom:8px;">
+                                    <label>Section</label>
+                                    <input type="text" name="section_name" value="{{ item['section_name'] }}" required>
+                                </div>
+                                <button class="btn secondary inline" type="submit">Save</button>
+                            </form>
+                        </td>
+                        <td>
+                            {% if item['is_active'] == 1 %}
+                                <span class="badge badge-yes">Active</span>
+                            {% else %}
+                                <span class="badge badge-na">Inactive</span>
+                            {% endif %}
+                            <form method="post" style="margin-top:8px;">
+                                <input type="hidden" name="action" value="toggle_item">
+                                <input type="hidden" name="item_id" value="{{ item['id'] }}">
+                                {% if item['is_active'] == 1 %}
+                                    <button class="btn red inline" type="submit">Deactivate</button>
+                                {% else %}
+                                    <button class="btn green inline" type="submit">Activate</button>
+                                {% endif %}
+                            </form>
+                        </td>
+                        <td>
+                            <form method="post" style="display:inline-block; margin:0 6px 6px 0;">
+                                <input type="hidden" name="action" value="move_up">
+                                <input type="hidden" name="item_id" value="{{ item['id'] }}">
+                                <button class="btn secondary inline" type="submit">Up</button>
+                            </form>
+                            <form method="post" style="display:inline-block; margin:0;">
+                                <input type="hidden" name="action" value="move_down">
+                                <input type="hidden" name="item_id" value="{{ item['id'] }}">
+                                <button class="btn secondary inline" type="submit">Down</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6">No SVR form items found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    """
+    return render_page(content, title="Manage SVR Form", items=items)
 @app.route("/users", methods=["GET", "POST"])
 @login_required
 @role_required("admin")
@@ -1232,6 +1550,8 @@ def manage_users():
     </div>
     """
     return render_page(content, title="Manage Users", users=users)
+
+
 @app.route("/store-contacts", methods=["GET", "POST"])
 @login_required
 @role_required("admin")
@@ -1661,6 +1981,8 @@ def manage_verification_questions():
         questions=questions,
         today=datetime.now().date().isoformat(),
     )
+
+
 @app.route("/maintenance")
 @login_required
 @role_required("admin", "maintenance")
@@ -1840,12 +2162,13 @@ def reopen_action_item(item_id):
     if session.get("role") == "maintenance":
         return redirect(url_for("maintenance_dashboard"))
     return redirect(url_for("action_dashboard"))
-
-
 @app.route("/report/new", methods=["GET", "POST"])
 @login_required
 @role_required("admin", "supervisor")
 def new_report():
+    form_items = load_svr_form_items(active_only=True)
+    grouped_items = group_form_items(form_items)
+
     if request.method == "POST":
         db = get_db()
         now = datetime.now().isoformat(timespec="seconds")
@@ -1856,41 +2179,23 @@ def new_report():
             "supervisor_username": session.get("username"),
             "supervisor_name": session.get("display_name"),
             "manager_on_duty": safe_text("manager_on_duty"),
-            "checklist_book_use": clean_yes_no("checklist_book_use"),
-            "restroom_notes": safe_text("restroom_notes"),
-            "pizza_quality_notes": safe_text("pizza_quality_notes"),
-            "last_week_svr_review": safe_text("last_week_svr_review"),
-            "outside_store_condition_notes": safe_text("outside_store_condition_notes"),
-            "carryout_notes": safe_text("carryout_notes"),
-            "store_condition_notes": safe_text("store_condition_notes"),
-            "refrigeration_units_notes": safe_text("refrigeration_units_notes"),
-            "bake_wares_notes": safe_text("bake_wares_notes"),
-            "oven_heatrack_notes": safe_text("oven_heatrack_notes"),
-            "callout_calendar_notes": safe_text("callout_calendar_notes"),
-            "deposit_log_notes": safe_text("deposit_log_notes"),
-            "pest_control_status": safe_text("pest_control_status"),
-            "cleaning_list": safe_text("cleaning_list"),
-            "goals_for_week": safe_text("goals_for_week"),
-            "maintenance_needs": safe_text("maintenance_needs"),
-            "complete_solution": safe_text("complete_solution"),
-            "parking_lot_clean": clean_yes_no("parking_lot_clean"),
-            "carryout_clean": clean_yes_no("carryout_clean"),
-            "customer_area_condition": clean_yes_no("customer_area_condition"),
-            "uniforms_proper": clean_yes_no("uniforms_proper"),
-            "hot_bags_clean": clean_yes_no("hot_bags_clean"),
-            "hot_bags_condition": clean_yes_no("hot_bags_condition"),
-            "production_area_clean": clean_yes_no("production_area_clean"),
-            "ceiling_tiles_clean": clean_yes_no("ceiling_tiles_clean"),
-            "walls_floors_not_broken": clean_yes_no("walls_floors_not_broken"),
-            "walkin_makeline_clean": clean_yes_no("walkin_makeline_clean"),
-            "bakeware_clean": clean_yes_no("bakeware_clean"),
-            "oven_area_clean": clean_yes_no("oven_area_clean"),
-            "thermometers_available": clean_yes_no("thermometers_available"),
-            "scales_available": clean_yes_no("scales_available"),
-            "caller_id_working": clean_yes_no("caller_id_working"),
-            "callout_calendar_present": clean_yes_no("callout_calendar_present"),
             "created_at": now,
         }
+
+        for item in form_items:
+            key = item["field_key"]
+            if key not in SUPPORTED_SVR_FIELD_KEYS:
+                continue
+
+            if item["field_type"] == "yes_no":
+                report_data[key] = clean_yes_no(key)
+            else:
+                report_data[key] = safe_text(key)
+
+        for item in MASTER_SVR_FORM_ITEMS:
+            key = item["field_key"]
+            if key not in report_data and key in SUPPORTED_SVR_FIELD_KEYS:
+                report_data[key] = "N/A" if item["field_type"] == "yes_no" else ""
 
         if not report_data["store_number"]:
             flash("Store number is required.", "error")
@@ -1908,9 +2213,9 @@ def new_report():
 
         auto_items = []
 
-        goals_items = parse_action_items(report_data["goals_for_week"])
-        clean_items = parse_action_items(report_data["cleaning_list"])
-        maintenance_items = parse_action_items(report_data["maintenance_needs"])
+        goals_items = parse_action_items(report_data.get("goals_for_week", ""))
+        clean_items = parse_action_items(report_data.get("cleaning_list", ""))
+        maintenance_items = parse_action_items(report_data.get("maintenance_needs", ""))
 
         for item in goals_items + clean_items:
             if item not in auto_items:
@@ -1930,7 +2235,7 @@ def new_report():
             "callout_calendar_present": "Update callout calendar",
         }
         for field, label in fail_map.items():
-            if report_data[field] == "No" and label not in auto_items:
+            if report_data.get(field) == "No" and label not in auto_items:
                 auto_items.append(label)
 
         for item in auto_items:
@@ -1964,30 +2269,11 @@ def new_report():
         flash("SVR submitted successfully.", "success")
         return redirect(url_for("view_report", report_id=report_id))
 
-    checks = [
-        ("checklist_book_use", "Checklist book use"),
-        ("parking_lot_clean", "Parking lot / sidewalk entry clean"),
-        ("carryout_clean", "Carry out clean, seating counter, and surfaces"),
-        ("customer_area_condition", "Customer area condition okay"),
-        ("uniforms_proper", "Uniforms / aprons worn properly"),
-        ("hot_bags_clean", "Hot bags clean"),
-        ("hot_bags_condition", "Hot bags in good condition / sufficient #"),
-        ("production_area_clean", "Production area walls / floors / baseboards / windows clean"),
-        ("ceiling_tiles_clean", "Ceiling tiles, t-bars, vents clean and not broken"),
-        ("walls_floors_not_broken", "Walls, floors, baseboards not broken"),
-        ("walkin_makeline_clean", "Walk-in / makeline clean"),
-        ("bakeware_clean", "Bakeware clean and free of carbon build-up"),
-        ("oven_area_clean", "Oven area clean"),
-        ("thermometers_available", "Calibrated thermometers in use / available"),
-        ("scales_available", "Calibrated working scales and job aids available"),
-        ("caller_id_working", "Caller ID installed and working"),
-        ("callout_calendar_present", "Callout calendar present"),
-    ]
-
     content = """
     <div class="card">
         <h2>New Supervisor Visit Report</h2>
-        <p class="muted">Fill out the visit details below. Photos are optional.</p>
+        <p class="muted">Fill out the visit details below. Admin controls the order and active items on this form.</p>
+
         <form method="post" enctype="multipart/form-data">
             <div class="three-col">
                 <div><label>Date</label><input type="date" name="visit_date" value="{{ today }}"></div>
@@ -1995,13 +2281,19 @@ def new_report():
                 <div><label>Manager on duty</label><input type="text" name="manager_on_duty" placeholder="Tyler"></div>
             </div>
 
+            {% for section_name, items in grouped_items.items() %}
             <div class="card" style="margin-top:16px; background:#fbfdff;">
-                <h3>Yes / No / N/A Checks</h3>
+                <h3>{{ section_name }}</h3>
+
+                {% set yes_no_items = items | selectattr('field_type', 'equalto', 'yes_no') | list %}
+                {% set other_items = items | rejectattr('field_type', 'equalto', 'yes_no') | list %}
+
+                {% if yes_no_items %}
                 <div class="check-grid">
-                    {% for field, label in checks %}
+                    {% for item in yes_no_items %}
                     <div class="check-item">
-                        <label>{{ label }}</label>
-                        <select name="{{ field }}">
+                        <label>{{ item['label'] }}</label>
+                        <select name="{{ item['field_key'] }}">
                             <option value="Yes">Yes</option>
                             <option value="No">No</option>
                             <option value="N/A">N/A</option>
@@ -2009,19 +2301,35 @@ def new_report():
                     </div>
                     {% endfor %}
                 </div>
+                {% endif %}
+
+                {% if other_items %}
+                    {% for item in other_items %}
+                    <div style="margin-top:12px;">
+                        <label>{{ item['label'] }}</label>
+                        {% if item['field_type'] == 'textarea' %}
+                            {% if item['field_key'] in ['cleaning_list', 'goals_for_week', 'maintenance_needs'] %}
+                                <textarea name="{{ item['field_key'] }}" placeholder="One item per line"></textarea>
+                            {% else %}
+                                <textarea name="{{ item['field_key'] }}"></textarea>
+                            {% endif %}
+                        {% else %}
+                            <input type="text" name="{{ item['field_key'] }}">
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            <div style="margin-top:14px;">
+                <label>Upload photos</label>
+                <input type="file" name="photos" multiple accept="image/*">
             </div>
 
-            <div class="two-col"><div><label>Restroom notes</label><textarea name="restroom_notes"></textarea></div><div><label>Pizza quality notes</label><textarea name="pizza_quality_notes"></textarea></div></div>
-            <div class="two-col"><div><label>Last week's SVR review</label><textarea name="last_week_svr_review"></textarea></div><div><label>Outside store condition notes</label><textarea name="outside_store_condition_notes"></textarea></div></div>
-            <div class="two-col"><div><label>Carryout notes</label><textarea name="carryout_notes"></textarea></div><div><label>Store condition notes</label><textarea name="store_condition_notes"></textarea></div></div>
-            <div class="two-col"><div><label>Refrigeration units notes</label><textarea name="refrigeration_units_notes"></textarea></div><div><label>Bake wares notes</label><textarea name="bake_wares_notes"></textarea></div></div>
-            <div class="two-col"><div><label>Oven / heatrack notes</label><textarea name="oven_heatrack_notes"></textarea></div><div><label>Callout calendar notes</label><textarea name="callout_calendar_notes"></textarea></div></div>
-            <div class="two-col"><div><label>Deposit log notes</label><textarea name="deposit_log_notes"></textarea></div><div><label>Pest control status</label><input type="text" name="pest_control_status" placeholder="Up to date"></div></div>
-            <div><label>Cleaning list for the week</label><textarea name="cleaning_list" placeholder="One item per line"></textarea></div>
-            <div><label>Goals for the week</label><textarea name="goals_for_week" placeholder="One item per line"></textarea></div>
-            <div class="two-col"><div><label>Maintenance needs</label><textarea name="maintenance_needs" placeholder="One item per line"></textarea></div><div><label>The complete solution</label><textarea name="complete_solution"></textarea></div></div>
-            <div style="margin-top:14px;"><label>Upload photos</label><input type="file" name="photos" multiple accept="image/*"></div>
-            <div style="margin-top:18px;"><button class="btn" type="submit">Submit SVR</button></div>
+            <div style="margin-top:18px;">
+                <button class="btn" type="submit">Submit SVR</button>
+            </div>
         </form>
     </div>
     """
@@ -2029,8 +2337,10 @@ def new_report():
         content,
         title="New SVR",
         today=datetime.now().date().isoformat(),
-        checks=checks,
+        grouped_items=grouped_items,
     )
+
+
 @app.route("/report/<int:report_id>")
 @login_required
 @role_required("admin", "supervisor")
@@ -2062,25 +2372,8 @@ def view_report(report_id):
     contact = get_store_contact(report["store_number"])
     email_link = build_manager_email_link(report, actions, contact)
 
-    checks = [
-        ("checklist_book_use", "Checklist book use"),
-        ("parking_lot_clean", "Parking lot / sidewalk entry clean"),
-        ("carryout_clean", "Carry out clean, seating counter, and surfaces"),
-        ("customer_area_condition", "Customer area condition okay"),
-        ("uniforms_proper", "Uniforms / aprons worn properly"),
-        ("hot_bags_clean", "Hot bags clean"),
-        ("hot_bags_condition", "Hot bags in good condition / sufficient #"),
-        ("production_area_clean", "Production area clean"),
-        ("ceiling_tiles_clean", "Ceiling tiles, t-bars, vents clean and not broken"),
-        ("walls_floors_not_broken", "Walls, floors, baseboards not broken"),
-        ("walkin_makeline_clean", "Walk-in / makeline clean"),
-        ("bakeware_clean", "Bakeware clean and free of carbon build-up"),
-        ("oven_area_clean", "Oven area clean"),
-        ("thermometers_available", "Calibrated thermometers in use / available"),
-        ("scales_available", "Calibrated working scales and job aids available"),
-        ("caller_id_working", "Caller ID installed and working"),
-        ("callout_calendar_present", "Callout calendar present"),
-    ]
+    form_items = load_svr_form_items(active_only=True)
+    grouped_items = group_form_items(form_items)
 
     content = """
     <div class="card">
@@ -2093,26 +2386,30 @@ def view_report(report_id):
         </div>
     </div>
 
+    {% for section_name, items in grouped_items.items() %}
     <div class="card">
-        <h3>Checklist Results</h3>
-        <div class="table-wrap"><table>
-            <thead><tr><th>Item</th><th>Status</th></tr></thead>
-            <tbody>
-                {% for field, label in checks %}
-                <tr><td>{{ label }}</td><td>{{ yes_no_badge(report[field])|safe }}</td></tr>
-                {% endfor %}
-            </tbody>
-        </table></div>
+        <h3>{{ section_name }}</h3>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Item</th><th>Response</th></tr></thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ item['label'] }}</td>
+                        <td>
+                            {% if item['field_type'] == 'yes_no' %}
+                                {{ yes_no_badge(report[item['field_key']])|safe }}
+                            {% else %}
+                                <div style="white-space:pre-wrap;">{{ report[item['field_key']] or '—' }}</div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
-
-    <div class="two-col"><div class="card"><h3>Restroom notes</h3><p>{{ report['restroom_notes'] or '—' }}</p></div><div class="card"><h3>Pizza quality notes</h3><p>{{ report['pizza_quality_notes'] or '—' }}</p></div></div>
-    <div class="two-col"><div class="card"><h3>Last week's SVR review</h3><p>{{ report['last_week_svr_review'] or '—' }}</p></div><div class="card"><h3>Outside store condition notes</h3><p>{{ report['outside_store_condition_notes'] or '—' }}</p></div></div>
-    <div class="two-col"><div class="card"><h3>Carryout notes</h3><p>{{ report['carryout_notes'] or '—' }}</p></div><div class="card"><h3>Store condition notes</h3><p>{{ report['store_condition_notes'] or '—' }}</p></div></div>
-    <div class="two-col"><div class="card"><h3>Refrigeration notes</h3><p>{{ report['refrigeration_units_notes'] or '—' }}</p></div><div class="card"><h3>Bake wares notes</h3><p>{{ report['bake_wares_notes'] or '—' }}</p></div></div>
-    <div class="two-col"><div class="card"><h3>Oven / heatrack notes</h3><p>{{ report['oven_heatrack_notes'] or '—' }}</p></div><div class="card"><h3>Callout calendar notes</h3><p>{{ report['callout_calendar_notes'] or '—' }}</p></div></div>
-    <div class="two-col"><div class="card"><h3>Deposit log notes</h3><p>{{ report['deposit_log_notes'] or '—' }}</p></div><div class="card"><h3>Pest control</h3><p>{{ report['pest_control_status'] or '—' }}</p></div></div>
-    <div class="two-col"><div class="card"><h3>Cleaning list</h3><p style="white-space:pre-wrap;">{{ report['cleaning_list'] or '—' }}</p></div><div class="card"><h3>Goals for the week</h3><p style="white-space:pre-wrap;">{{ report['goals_for_week'] or '—' }}</p></div></div>
-    <div class="two-col"><div class="card"><h3>Maintenance needs</h3><p style="white-space:pre-wrap;">{{ report['maintenance_needs'] or '—' }}</p></div><div class="card"><h3>The complete solution</h3><p style="white-space:pre-wrap;">{{ report['complete_solution'] or '—' }}</p></div></div>
+    {% endfor %}
 
     <div class="card">
         <h3>Action Items</h3>
@@ -2185,7 +2482,7 @@ def view_report(report_id):
         report=report,
         photos=photos,
         actions=actions,
-        checks=checks,
+        grouped_items=grouped_items,
         email_link=email_link,
     )
 
