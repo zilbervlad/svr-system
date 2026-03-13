@@ -55,7 +55,7 @@ MASTER_SVR_FORM_ITEMS = [
     {"field_key": "checklist_book_notes", "label": "Checklist book notes", "field_type": "textarea", "section_name": "Notes", "sort_order": 205},
     {"field_key": "one_way_proof_dough_projection", "label": "1-way proof - dough projection / dough marked inside the walk-in", "field_type": "textarea", "section_name": "Operations", "sort_order": 207},
     {"field_key": "pizza_quality_notes", "label": "Pizza quality notes", "field_type": "textarea", "section_name": "Notes", "sort_order": 210},
-    {"field_key": "load_and_go_load_captain", "label": "Load & Go - certified load captain on schedule for every rush", "field_type": "textarea", "section_name": "Operations", "sort_order": 215},
+    {"field_key": "load_and_go_load_captain", "label": "Load & Go - certified load captain on the schedule for every rush", "field_type": "textarea", "section_name": "Operations", "sort_order": 215},
     {"field_key": "last_week_svr_review", "label": "Last week's SVR review", "field_type": "textarea", "section_name": "Notes", "sort_order": 220},
     {"field_key": "outside_store_condition_notes", "label": "Outside store condition notes", "field_type": "textarea", "section_name": "Notes", "sort_order": 230},
     {"field_key": "carryout_notes", "label": "Carry out notes", "field_type": "textarea", "section_name": "Notes", "sort_order": 240},
@@ -65,8 +65,8 @@ MASTER_SVR_FORM_ITEMS = [
     {"field_key": "oven_heatrack_notes", "label": "Oven / heatrack notes", "field_type": "textarea", "section_name": "Notes", "sort_order": 280},
     {"field_key": "callout_calendar_notes", "label": "Call out calendar notes - who needs a meeting?", "field_type": "textarea", "section_name": "Notes", "sort_order": 290},
     {"field_key": "deposit_log_notes", "label": "Deposit log notes", "field_type": "textarea", "section_name": "Notes", "sort_order": 300},
-    {"field_key": "deposit_log_missing_days", "label": "Deposit log - which days are missing?", "field_type": "textarea", "section_name": "Operations", "sort_order": 305},
-    {"field_key": "pest_control_status", "label": "Pest control", "field_type": "text", "section_name": "Operations", "sort_order": 310},
+    {"field_key": "deposit_log_missing_days", "label": "Deposit Log - which days are missing?", "field_type": "textarea", "section_name": "Operations", "sort_order": 305},
+    {"field_key": "pest_control_status", "label": "Pest Control", "field_type": "text", "section_name": "Operations", "sort_order": 310},
     {"field_key": "cleaning_list", "label": "Cleaning list for the week", "field_type": "textarea", "section_name": "Operations", "sort_order": 320},
     {"field_key": "goals_for_week", "label": "Goals for the week", "field_type": "textarea", "section_name": "Operations", "sort_order": 330},
     {"field_key": "maintenance_needs", "label": "Maintenance needs", "field_type": "textarea", "section_name": "Operations", "sort_order": 340},
@@ -141,6 +141,12 @@ def seed_svr_form_items(db):
                     now,
                 ),
             )
+
+
+def ensure_column(db, table_name, column_name, column_type):
+    columns = [row["name"] for row in db.execute(f"PRAGMA table_info({table_name})").fetchall()]
+    if column_name not in columns:
+        db.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}")
 
 
 def init_db():
@@ -224,6 +230,11 @@ def init_db():
         )
         """
     )
+
+    ensure_column(db, "svr_reports", "checklist_book_notes", "TEXT")
+    ensure_column(db, "svr_reports", "one_way_proof_dough_projection", "TEXT")
+    ensure_column(db, "svr_reports", "load_and_go_load_captain", "TEXT")
+    ensure_column(db, "svr_reports", "deposit_log_missing_days", "TEXT")
 
     cur.execute(
         """
@@ -2783,6 +2794,7 @@ def uploaded_file(filename):
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 
+init_db()
+
 if __name__ == "__main__":
-    init_db()
     app.run(debug=True, host="0.0.0.0", port=5001)
